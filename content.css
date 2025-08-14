@@ -1,0 +1,102 @@
+/* Hunter Email Finder - Content Script Styles */
+
+#hunter-floating-btn {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+#hunter-floating-btn:hover {
+    animation: pulse 2s infinite !important;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7) !important;
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(102, 126, 234, 0) !important;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(102, 126, 234, 0) !important;
+    }
+}
+
+#hunter-modal {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    backdrop-filter: blur(5px) !important;
+    -webkit-backdrop-filter: blur(5px) !important;
+}
+
+#hunter-modal * {
+    box-sizing: border-box !important;
+}
+
+.hunter-notification {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Highlighted emails on page */
+.hunter-highlighted-email {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+    border-radius: 4px !important;
+    padding: 2px 4px !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    position: relative !important;
+}
+
+.hunter-highlighted-email::after {
+    content: '📧' !important;
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
+    font-size: 12px !important;
+    background: #667eea !important;
+    color: white !important;
+    border-radius: 50% !important;
+    width: 16px !important;
+    height: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 8px !important;
+}
+
+/* Animation for modal appearance */
+#hunter-modal > div {
+    animation: modalSlideIn 0.3s ease !important;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0 !important;
+        transform: scale(0.8) translateY(-50px) !important;
+    }
+    to {
+        opacity: 1 !important;
+        transform: scale(1) translateY(0) !important;
+    }
+}
+
+/* Scrollbar styling for modal */
+#hunter-modal *::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+#hunter-modal *::-webkit-scrollbar-track {
+    background: #f1f1f1 !important;
+    border-radius: 4px !important;
+}
+
+#hunter-modal *::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    border-radius: 4px !important;
+}
+
+#hunter-modal *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a6fd8, #6a4190) !important;
+}

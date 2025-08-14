@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hunter Email Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 380px;
+            min-height: 500px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            min-height: 420px;
+        }
+
+        .api-setup {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .api-setup.configured {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            width: 100%;
+            margin: 5px 0;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 12px;
+            width: auto;
+            display: inline-block;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 13px;
+        }
+
+        .current-domain {
+            background: #e3f2fd;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .current-domain strong {
+            color: #1976d2;
+        }
+
+        .email-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .email-item {
+            padding: 12px;
+            border-bottom: 1px solid #f1f3f4;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .email-item:hover {
+            background: #f8f9fa;
+        }
+
+        .email-item:last-child {
+            border-bottom: none;
+        }
+
+        .email-address {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .email-info {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .email-score {
+            background: #28a745;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+        }
+
+        .email-score.medium {
+            background: #ffc107;
+        }
+
+        .email-score.low {
+            background: #dc3545;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #667eea;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stat {
+            flex: 1;
+            text-align: center;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .export-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .page-emails {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .page-emails h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .extracted-email {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .extracted-email:hover {
+            background: #e9ecef;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Hunter Email Finder</h1>
+        <p>Encontre emails profissionais</p>
+    </div>
+
+    <div class="container">
+        <!-- API Configuration -->
+        <div id="api-setup" class="api-setup">
+            <div id="api-status">
+                <p>🔑 Configure sua API Key do Hunter.io</p>
+                <input type="password" id="api-key" class="api-input" placeholder="Cole sua API Key aqui...">
+                <button id="save-api-key" class="btn">Salvar API Key</button>
+                <p style="font-size: 12px; margin-top: 10px;">
+                    <a href="https://hunter.io/api" target="_blank">Obter API Key gratuita</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Main Interface -->
+        <div id="main-interface" style="display: none;">
+            <div class="tabs">
+                <div class="tab active" data-tab="domain">Por Domínio</div>
+                <div class="tab" data-tab="page">Esta Página</div>
+                <div class="tab" data-tab="find">Buscar Email</div>
+            </div>
+
+            <!-- Domain Search Tab -->
+            <div id="tab-domain" class="tab-content active">
+                <div id="current-domain-info" class="current-domain"></div>
+                
+                <div class="form-group">
+                    <label for="domain-input">Domínio:</label>
+                    <input type="text" id="domain-input" class="api-input" placeholder="exemplo.com">
+                </div>
+
+                <button id="search-domain" class="btn">🔍 Buscar Emails do Domínio</button>
+
+                <div id="domain-stats" class="stats" style="display: none;">
+                    <div class="stat">
+                        <div class="stat-number" id="total-emails">0</div>
+                        <div class="stat-label">Emails</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number" id="deliverable-emails">0</div>
+                        <div class="stat-label">Entregáveis</div>
+                    </div>
+                </div>
+
+                <div id="domain-results"></div>
+            </div>
+
+            <!-- Page Extraction Tab -->
+            <div id="tab-page" class="tab-content">
+                <div class="current-domain">
+                    <p>📄 <strong>Página Atual:</strong></p>
+                    <span id="current-url">Carregando...</span>
+                </div>
+
+                <button id="extract-page" class="btn">🌐 Extrair Emails desta Página</button>
+
+                <div id="page-results"></div>
+            </div>
+
+            <!-- Email Finder Tab -->
+            <div id="tab-find" class="tab-content">
+                <div class="form-group">
+                    <label for="person-domain">Domínio da empresa:</label>
+                    <input type="text" id="person-domain" class="api-input" placeholder="empresa.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="first-name">Nome:</label>
+                    <input type="text" id="first-name" class="api-input" placeholder="João">
+                </div>
+
+                <div class="form-group">
+                    <label for="last-name">Sobrenome:</label>
+                    <input type="text" id="last-name" class="api-input" placeholder="Silva">
+                </div>
+
+                <button id="find-email" class="btn">🎯 Encontrar Email</button>
+
+                <div id="find-results"></div>
+            </div>
+        </div>
+
+        <!-- Results will be populated here -->
+        <div id="results-container"></div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
