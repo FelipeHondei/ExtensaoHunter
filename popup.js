@@ -7,106 +7,200 @@ class HunterExtension {
     }
 
     async init() {
+        console.log('Initializing Hunter Extension...');
         await this.loadApiKey();
+        await this.checkContextData();
         this.setupEventListeners();
         this.getCurrentTabInfo();
     }
 
     async loadApiKey() {
-        const result = await chrome.storage.sync.get(['hunterApiKey']);
-        if (result.hunterApiKey) {
-            this.apiKey = result.hunterApiKey;
-            this.showMainInterface();
+        try {
+            const result = await chrome.storage.sync.get(['hunterApiKey']);
+            if (result.hunterApiKey) {
+                this.apiKey = result.hunterApiKey;
+                this.showMainInterface();
+                console.log('API Key loaded successfully');
+            } else {
+                console.log('No API Key found');
+            }
+        } catch (error) {
+            console.error('Error loading API key:', error);
+        }
+    }
+
+    async checkContextData() {
+        try {
+            const result = await chrome.storage.local.get(['contextDomain', 'contextAction', 'contextPerson']);
+            
+            if (result.contextAction === 'domainSearch' && result.contextDomain) {
+                document.getElementById('domain-input').value = result.contextDomain;
+                this.switchTab('domain');
+                chrome.storage.local.remove(['contextDomain', 'contextAction']);
+            } else if (result.contextAction === 'findPerson' && result.contextPerson) {
+                const person = result.contextPerson;
+                document.getElementById('person-domain').value = person.domain;
+                document.getElementById('first-name').value = person.firstName;
+                document.getElementById('last-name').value = person.lastName;
+                this.switchTab('find');
+                chrome.storage.local.remove(['contextPerson', 'contextAction']);
+            }
+        } catch (error) {
+            console.error('Error checking context data:', error);
         }
     }
 
     setupEventListeners() {
+        console.log('Setting up event listeners...');
+        
         // API Key setup
-        document.getElementById('save-api-key').addEventListener('click', () => {
-            this.saveApiKey();
-        });
+        const saveApiBtn = document.getElementById('save-api-key');
+        if (saveApiBtn) {
+            saveApiBtn.addEventListener('click', () => {
+                console.log('Save API key clicked');
+                this.saveApiKey();
+            });
+        }
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
+                console.log('Tab clicked:', tab.dataset.tab);
                 this.switchTab(tab.dataset.tab);
             });
         });
 
         // Search buttons
-        document.getElementById('search-domain').addEventListener('click', () => {
-            this.searchByDomain();
-        });
+        const searchDomainBtn = document.getElementById('search-domain');
+        if (searchDomainBtn) {
+            searchDomainBtn.addEventListener('click', () => {
+                console.log('Search domain clicked');
+                this.searchByDomain();
+            });
+        }
 
-        document.getElementById('extract-page').addEventListener('click', () => {
-            this.extractFromPage();
-        });
+        const extractPageBtn = document.getElementById('extract-page');
+        if (extractPageBtn) {
+            extractPageBtn.addEventListener('click', () => {
+                console.log('Extract page clicked');
+                this.extractFromPage();
+            });
+        }
 
-        document.getElementById('find-email').addEventListener('click', () => {
-            this.findEmail();
-        });
+        const findEmailBtn = document.getElementById('find-email');
+        if (findEmailBtn) {
+            findEmailBtn.addEventListener('click', () => {
+                console.log('Find email clicked');
+                this.findEmail();
+            });
+        }
 
         // Enter key support
-        document.getElementById('api-key').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.saveApiKey();
-        });
+        const apiKeyInput = document.getElementById('api-key');
+        if (apiKeyInput) {
+            apiKeyInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.saveApiKey();
+            });
+        }
 
-        document.getElementById('domain-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.searchByDomain();
-        });
+        const domainInput = document.getElementById('domain-input');
+        if (domainInput) {
+            domainInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchByDomain();
+            });
+        }
+
+        console.log('Event listeners setup complete');
     }
 
     async saveApiKey() {
-        const apiKey = document.getElementById('api-key').value.trim();
+        const apiKeyInput = document.getElementById('api-key');
+        const apiKey = apiKeyInput.value.trim();
+        
+        console.log('Saving API key...');
+        
         if (!apiKey) {
             this.showError('Por favor, insira uma API Key válida');
             return;
         }
 
+        // Show loading state
+        const saveBtn = document.getElementById('save-api-key');
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = 'Validando...';
+        saveBtn.disabled = true;
+
         // Test the API key
         try {
-            const response = await fetch(`${this.baseUrl}/account?api_key=${apiKey}`);
+            const response = await fetch(`${this.baseUrl}/account?api_key=${apiKey}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
             if (response.ok) {
                 await chrome.storage.sync.set({ hunterApiKey: apiKey });
                 this.apiKey = apiKey;
                 this.showMainInterface();
-                this.showSuccess('API Key salva com sucesso!');
+                this.showSuccess('✅ API Key salva com sucesso!');
+                console.log('API Key validated and saved');
             } else {
-                throw new Error('API Key inválida');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errors?.[0]?.details || 'API Key inválida');
             }
         } catch (error) {
-            this.showError('Erro ao validar API Key. Verifique se está correta.');
+            console.error('API Key validation error:', error);
+            this.showError(`❌ Erro: ${error.message}`);
+        } finally {
+            saveBtn.textContent = originalText;
+            saveBtn.disabled = false;
         }
     }
 
     showMainInterface() {
-        document.getElementById('api-setup').style.display = 'none';
-        document.getElementById('main-interface').style.display = 'block';
+        const apiSetup = document.getElementById('api-setup');
+        const mainInterface = document.getElementById('main-interface');
         
-        const apiStatus = document.getElementById('api-setup');
-        apiStatus.classList.add('configured');
-        apiStatus.innerHTML = `
-            <p>✅ API Key configurada</p>
-            <button class="btn btn-small btn-warning" onclick="location.reload()">Reconfigurar</button>
-        `;
-        apiStatus.style.display = 'block';
+        if (apiSetup && mainInterface) {
+            apiSetup.style.display = 'none';
+            mainInterface.style.display = 'block';
+            console.log('Main interface shown');
+        }
     }
 
     async getCurrentTabInfo() {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab && tab.url) {
+            if (tab && tab.url && !tab.url.startsWith('chrome://')) {
                 const url = new URL(tab.url);
                 this.currentDomain = url.hostname.replace('www.', '');
                 
-                document.getElementById('current-url').textContent = tab.url;
-                document.getElementById('domain-input').value = this.currentDomain;
+                const currentUrlElement = document.getElementById('current-url');
+                const domainInput = document.getElementById('domain-input');
+                const currentDomainInfo = document.getElementById('current-domain-info');
+                const personDomainInput = document.getElementById('person-domain');
                 
-                const domainInfo = document.getElementById('current-domain-info');
-                domainInfo.innerHTML = `
-                    <p>🌐 <strong>Domínio Atual:</strong> ${this.currentDomain}</p>
-                    <p>Busque emails deste domínio automaticamente</p>
-                `;
+                if (currentUrlElement) {
+                    currentUrlElement.textContent = tab.url;
+                }
+                
+                if (domainInput && !domainInput.value) {
+                    domainInput.value = this.currentDomain;
+                }
+                
+                if (personDomainInput && !personDomainInput.value) {
+                    personDomainInput.value = this.currentDomain;
+                }
+                
+                if (currentDomainInfo) {
+                    currentDomainInfo.innerHTML = `
+                        <p>🌐 <strong>Domínio Atual:</strong> ${this.currentDomain}</p>
+                        <p>Busque emails deste domínio automaticamente</p>
+                    `;
+                }
+                
+                console.log('Current domain:', this.currentDomain);
             }
         } catch (error) {
             console.error('Error getting current tab:', error);
@@ -114,73 +208,107 @@ class HunterExtension {
     }
 
     switchTab(tabName) {
+        console.log('Switching to tab:', tabName);
+        
         // Remove active class from all tabs and contents
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         
         // Add active class to selected tab
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        document.getElementById(`tab-${tabName}`).classList.add('active');
+        const selectedTab = document.querySelector(`[data-tab="${tabName}"]`);
+        const selectedContent = document.getElementById(`tab-${tabName}`);
         
-        // Clear previous results
-        this.clearResults();
+        if (selectedTab && selectedContent) {
+            selectedTab.classList.add('active');
+            selectedContent.classList.add('active');
+            
+            // Clear previous results
+            this.clearResults();
+        }
     }
 
     async searchByDomain() {
-        const domain = document.getElementById('domain-input').value.trim();
+        const domainInput = document.getElementById('domain-input');
+        const domain = domainInput.value.trim();
+        
+        console.log('Searching domain:', domain);
+        
         if (!domain) {
             this.showError('Por favor, insira um domínio');
             return;
         }
 
-        this.showLoading('domain-results', 'Buscando emails...');
+        if (!this.apiKey) {
+            this.showError('API Key não configurada');
+            return;
+        }
+
+        this.showLoading('domain-results', '🔍 Buscando emails...');
 
         try {
-            const response = await fetch(
-                `${this.baseUrl}/domain-search?domain=${domain}&api_key=${this.apiKey}&limit=100`
-            );
+            const url = `${this.baseUrl}/domain-search?domain=${encodeURIComponent(domain)}&api_key=${this.apiKey}&limit=100`;
+            console.log('API URL:', url);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errors?.[0]?.details || `HTTP ${response.status}`);
             }
 
             const data = await response.json();
+            console.log('Domain search results:', data);
             this.displayDomainResults(data);
         } catch (error) {
-            this.showError('Erro ao buscar emails: ' + error.message);
+            console.error('Domain search error:', error);
+            this.showError('❌ Erro ao buscar emails: ' + error.message);
             document.getElementById('domain-results').innerHTML = '';
         }
     }
 
     async extractFromPage() {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        console.log('Extracting from page...');
         
-        if (!tab || !tab.url) {
-            this.showError('Não foi possível acessar a página atual');
-            return;
-        }
-
-        this.showLoading('page-results', 'Extraindo emails da página...');
-
         try {
-            const url = encodeURIComponent(tab.url);
-            const response = await fetch(
-                `${this.baseUrl}/email-finder?domain=${this.currentDomain}&api_key=${this.apiKey}&url=${url}`
-            );
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            
+            if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+                this.showError('Não foi possível acessar esta página');
+                return;
             }
 
-            const data = await response.json();
-            
-            // Also inject content script to extract emails from page
-            chrome.tabs.sendMessage(tab.id, { action: 'extractEmails' }, (response) => {
-                this.displayPageResults(data, response?.emails || []);
-            });
+            this.showLoading('page-results', '🌐 Extraindo emails...');
 
+            // Extract emails from page content
+            const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractEmails' });
+            
+            let apiResults = null;
+            
+            // Also try API search if we have API key
+            if (this.apiKey && this.currentDomain) {
+                try {
+                    const apiResponse = await fetch(
+                        `${this.baseUrl}/domain-search?domain=${encodeURIComponent(this.currentDomain)}&api_key=${this.apiKey}&limit=10`
+                    );
+                    
+                    if (apiResponse.ok) {
+                        apiResults = await apiResponse.json();
+                    }
+                } catch (error) {
+                    console.log('API search failed, showing only extracted emails');
+                }
+            }
+            
+            this.displayPageResults(apiResults, response?.emails || []);
+            
         } catch (error) {
-            this.showError('Erro ao extrair emails: ' + error.message);
+            console.error('Page extraction error:', error);
+            this.showError('❌ Erro ao extrair emails: ' + error.message);
             document.getElementById('page-results').innerHTML = '';
         }
     }
@@ -189,6 +317,8 @@ class HunterExtension {
         const domain = document.getElementById('person-domain').value.trim();
         const firstName = document.getElementById('first-name').value.trim();
         const lastName = document.getElementById('last-name').value.trim();
+
+        console.log('Finding email for:', firstName, lastName, 'at', domain);
 
         if (!domain) {
             this.showError('Por favor, insira o domínio da empresa');
@@ -200,21 +330,35 @@ class HunterExtension {
             return;
         }
 
-        this.showLoading('find-results', 'Procurando email...');
+        if (!this.apiKey) {
+            this.showError('API Key não configurada');
+            return;
+        }
+
+        this.showLoading('find-results', '🎯 Procurando email...');
 
         try {
-            const response = await fetch(
-                `${this.baseUrl}/email-finder?domain=${domain}&first_name=${firstName}&last_name=${lastName}&api_key=${this.apiKey}`
-            );
+            const url = `${this.baseUrl}/email-finder?domain=${encodeURIComponent(domain)}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&api_key=${this.apiKey}`;
+            console.log('Email finder URL:', url);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errors?.[0]?.details || `HTTP ${response.status}`);
             }
 
             const data = await response.json();
+            console.log('Email finder results:', data);
             this.displayFindResults(data);
         } catch (error) {
-            this.showError('Erro ao encontrar email: ' + error.message);
+            console.error('Email finder error:', error);
+            this.showError('❌ Erro ao encontrar email: ' + error.message);
             document.getElementById('find-results').innerHTML = '';
         }
     }
@@ -224,7 +368,14 @@ class HunterExtension {
         const statsContainer = document.getElementById('domain-stats');
 
         if (!data.data || !data.data.emails || data.data.emails.length === 0) {
-            container.innerHTML = '<div class="no-results">Nenhum email encontrado para este domínio</div>';
+            container.innerHTML = `
+                <div class="no-results">
+                    <p>📭 Nenhum email encontrado para este domínio</p>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Tente um domínio diferente ou verifique se está correto
+                    </p>
+                </div>
+            `;
             statsContainer.style.display = 'none';
             return;
         }
@@ -249,7 +400,7 @@ class HunterExtension {
                 <div class="email-item" data-email="${email.value}">
                     <div class="email-address">${email.value}</div>
                     <div class="email-info">
-                        <span>${email.first_name} ${email.last_name} - ${email.position || 'Posição não identificada'}</span>
+                        <span>${email.first_name || ''} ${email.last_name || ''} ${email.position ? '- ' + email.position : ''}</span>
                         <span class="email-score ${scoreClass}">${email.confidence}%</span>
                     </div>
                 </div>
@@ -274,14 +425,20 @@ class HunterExtension {
         });
 
         // Export functionality
-        document.getElementById('export-csv')?.addEventListener('click', () => {
-            this.exportToCSV(emails, `emails_${data.data.domain}`);
-        });
+        const exportBtn = document.getElementById('export-csv');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportToCSV(emails, `emails_${data.data.domain}`);
+            });
+        }
 
-        document.getElementById('copy-all')?.addEventListener('click', () => {
-            const allEmails = emails.map(e => e.value).join('\n');
-            this.copyToClipboard(allEmails);
-        });
+        const copyAllBtn = document.getElementById('copy-all');
+        if (copyAllBtn) {
+            copyAllBtn.addEventListener('click', () => {
+                const allEmails = emails.map(e => e.value).join('\n');
+                this.copyToClipboard(allEmails);
+            });
+        }
     }
 
     displayPageResults(apiData, extractedEmails) {
@@ -289,32 +446,43 @@ class HunterExtension {
         let html = '';
 
         // Show API results if available
-        if (apiData.data && apiData.data.email) {
+        if (apiData && apiData.data && apiData.data.emails && apiData.data.emails.length > 0) {
             html += `
                 <div class="page-emails">
-                    <h4>📧 Email encontrado via API:</h4>
-                    <div class="extracted-email" data-email="${apiData.data.email}">
-                        ${apiData.data.email}
-                        <span style="float: right;">${apiData.data.confidence}%</span>
-                    </div>
-                </div>
+                    <h4>🔍 Emails encontrados via API:</h4>
             `;
+            apiData.data.emails.slice(0, 5).forEach(email => {
+                html += `
+                    <div class="extracted-email" data-email="${email.value}">
+                        <strong>${email.value}</strong>
+                        <span style="float: right; font-size: 11px; color: #666;">${email.confidence}%</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
         }
 
         // Show extracted emails from page
         if (extractedEmails && extractedEmails.length > 0) {
             html += `
                 <div class="page-emails">
-                    <h4>🌐 Emails extraídos da página:</h4>
+                    <h4>🌐 Emails extraídos da página (${extractedEmails.length}):</h4>
             `;
             extractedEmails.forEach(email => {
-                html += `<div class="extracted-email" data-email="${email}">${email}</div>`;
+                html += `<div class="extracted-email" data-email="${email}"><strong>${email}</strong></div>`;
             });
             html += '</div>';
         }
 
         if (!html) {
-            html = '<div class="no-results">Nenhum email encontrado nesta página</div>';
+            html = `
+                <div class="no-results">
+                    <p>📭 Nenhum email encontrado nesta página</p>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Tente uma página diferente com mais conteúdo de contato
+                    </p>
+                </div>
+            `;
         }
 
         container.innerHTML = html;
@@ -331,18 +499,28 @@ class HunterExtension {
         const container = document.getElementById('find-results');
 
         if (!data.data || !data.data.email) {
-            container.innerHTML = '<div class="no-results">Email não encontrado para esta pessoa</div>';
+            container.innerHTML = `
+                <div class="no-results">
+                    <p>📭 Email não encontrado para esta pessoa</p>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Verifique se o nome e domínio estão corretos
+                    </p>
+                </div>
+            `;
             return;
         }
 
         const email = data.data;
+        const scoreClass = email.confidence >= 80 ? 'high' : 
+                         email.confidence >= 50 ? 'medium' : 'low';
+        
         container.innerHTML = `
             <div class="email-list">
                 <div class="email-item" data-email="${email.email}">
                     <div class="email-address">${email.email}</div>
                     <div class="email-info">
-                        <span>${email.first_name} ${email.last_name}</span>
-                        <span class="email-score high">${email.confidence}%</span>
+                        <span>${email.first_name || ''} ${email.last_name || ''}</span>
+                        <span class="email-score ${scoreClass}">${email.confidence}%</span>
                     </div>
                 </div>
             </div>
@@ -355,74 +533,133 @@ class HunterExtension {
             this.copyToClipboard(email.email);
         });
 
-        document.getElementById('copy-found')?.addEventListener('click', () => {
-            this.copyToClipboard(email.email);
-        });
+        const copyBtn = document.getElementById('copy-found');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                this.copyToClipboard(email.email);
+            });
+        }
     }
 
     showLoading(containerId, message) {
-        document.getElementById(containerId).innerHTML = `
-            <div class="loading">${message}</div>
-        `;
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="loading">${message}</div>
+            `;
+        }
     }
 
     showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        
-        document.querySelector('.container').prepend(errorDiv);
-        setTimeout(() => errorDiv.remove(), 5000);
+        this.showMessage(message, 'error-message', 5000);
     }
 
     showSuccess(message) {
-        const successDiv = document.createElement('div');
-        successDiv.className = 'success-message';
-        successDiv.textContent = message;
+        this.showMessage(message, 'success-message', 3000);
+    }
+
+    showMessage(message, className, duration) {
+        // Remove existing messages
+        document.querySelectorAll('.error-message, .success-message').forEach(el => el.remove());
         
-        document.querySelector('.container').prepend(successDiv);
-        setTimeout(() => successDiv.remove(), 3000);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = className;
+        messageDiv.textContent = message;
+        
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(messageDiv, container.firstChild);
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, duration);
+        }
     }
 
     clearResults() {
-        document.getElementById('domain-results').innerHTML = '';
-        document.getElementById('page-results').innerHTML = '';
-        document.getElementById('find-results').innerHTML = '';
-        document.getElementById('domain-stats').style.display = 'none';
+        const containers = ['domain-results', 'page-results', 'find-results'];
+        containers.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerHTML = '';
+            }
+        });
+        
+        const statsContainer = document.getElementById('domain-stats');
+        if (statsContainer) {
+            statsContainer.style.display = 'none';
+        }
     }
 
     async copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            this.showSuccess(`📋 ${text} copiado!`);
+            this.showSuccess(`📋 ${text} copiado para a área de transferência!`);
         } catch (error) {
             console.error('Failed to copy:', error);
+            // Fallback method
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            this.showSuccess(`📋 ${text} copiado!`);
         }
     }
 
     exportToCSV(emails, filename) {
-        const csv = [
-            ['Email', 'Nome', 'Sobrenome', 'Posição', 'Confiança'],
-            ...emails.map(email => [
-                email.value,
-                email.first_name || '',
-                email.last_name || '',
-                email.position || '',
-                email.confidence || ''
-            ])
-        ].map(row => row.join(',')).join('\n');
+        try {
+            const csvContent = [
+                ['Email', 'Nome', 'Sobrenome', 'Posição', 'Confiança'],
+                ...emails.map(email => [
+                    email.value || email.email,
+                    email.first_name || '',
+                    email.last_name || '',
+                    email.position || '',
+                    email.confidence || ''
+                ])
+            ].map(row => row.join(',')).join('\n');
 
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        
-        chrome.downloads.download({
-            url: url,
-            filename: `${filename}.csv`
-        });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            // Use downloads API if available
+            if (chrome.downloads) {
+                chrome.downloads.download({
+                    url: url,
+                    filename: `${filename}.csv`
+                }, () => {
+                    URL.revokeObjectURL(url);
+                    this.showSuccess('📊 Arquivo CSV baixado!');
+                });
+            } else {
+                // Fallback method
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${filename}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                this.showSuccess('📊 Arquivo CSV baixado!');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showError('Erro ao exportar arquivo CSV');
+        }
     }
 }
 
 // Initialize extension when popup loads
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing Hunter Extension...');
     new HunterExtension();
 });
+
+// Also initialize if DOM is already loaded
+if (document.readyState !== 'loading') {
+    console.log('DOM already loaded, initializing Hunter Extension...');
+    new HunterExtension();
+}

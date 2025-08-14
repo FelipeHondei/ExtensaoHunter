@@ -6,20 +6,30 @@
   "permissions": [
     "activeTab",
     "storage",
-    "https://api.hunter.io/*"
+    "contextMenus",
+    "notifications",
+    "downloads"
   ],
   "host_permissions": [
+    "https://api.hunter.io/*",
     "*://*/*"
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Hunter Email Finder"
+    "default_title": "Hunter Email Finder",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
+      "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "css": ["content.css"]
+      "css": ["content.css"],
+      "run_at": "document_idle"
     }
   ],
   "background": {
@@ -34,7 +44,7 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*"],
-      "matches": ["*://*/*"]
+      "matches": ["<all_urls>"]
     }
   ]
 }
